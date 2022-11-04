@@ -10,6 +10,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include "SimpleMeter.h"
 
 using namespace juce::dsp;
 
@@ -59,6 +60,18 @@ public:
     void updateCrossoverFrequency(double sampleRate);
     
     enum CHANNELS { L, R, C, LFE, LS, RS};
+    
+    // Allow an IAAAudioProcessorEditor to register as a listener to receive new
+        // meter values directly from the audio thread.
+    struct MeterListener
+    {
+        virtual ~MeterListener() {}
+
+        virtual void handleNewMeterValue (int, int, float) = 0;
+    };
+
+    void addMeterListener    (MeterListener& listener);
+    void removeMeterListener (MeterListener& listener);
 
 private:
     //==============================================================================
@@ -70,7 +83,8 @@ private:
     
     juce::OwnedArray<juce::OwnedArray<IIR::Filter<float>>> filterArrays;
     LinkwitzRileyFilter<float> sumLowPassFilter, lfeLowPassFilter;
-        
+    
+    ListenerList<MeterListener> meterListeners;
     
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BassicManagerAudioProcessor)
