@@ -63,6 +63,7 @@ target_compile_features("${PROJECT_NAME}" PRIVATE cxx_std_20)
 
 # Manually list all .h and .cpp files for the plugin
 set(SourceFiles
+    Source/SimpleMeter.h
     Source/PluginEditor.h
     Source/PluginProcessor.h
     Source/PluginEditor.cpp

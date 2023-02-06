@@ -17,7 +17,9 @@ using namespace juce::dsp;
 //==============================================================================
 /**
 */
-class BassicManagerAudioProcessor  : public juce::AudioProcessor
+class BassicManagerAudioProcessor  : public juce::AudioProcessor,
+                                    private AsyncUpdater,
+                                    private Timer
 {
 public:
     //==============================================================================
@@ -61,18 +63,28 @@ public:
     
     enum CHANNELS { L, R, C, LFE, LS, RS};
     
-    // Allow an IAAAudioProcessorEditor to register as a listener to receive new
-        // meter values directly from the audio thread.
-    struct MeterListener
+    void timerCallback() override
+        {
+            const SpinLock::ScopedLockType lock (levelMutex);
+
+            for (size_t i = 0; i < incomingReadableLevels.size(); ++i)
+                incomingReadableLevels[i] = std::max (incomingReadableLevels[i] * 0.95f, std::exchange (incomingLevels[i], 0.0f));
+            
+            for (size_t i = 0; i < outgoingReadableLevels.size(); ++i)
+                outgoingReadableLevels[i] = std::max (outgoingReadableLevels[i] * 0.95f, std::exchange (outgoingLevels[i], 0.0f));
+        }
+    
+    float getLevel (bool isInput, int bus, int channel) const
     {
-        virtual ~MeterListener() {}
-
-        virtual void handleNewMeterValue (int, int, float) = 0;
-    };
-
-    void addMeterListener    (MeterListener& listener);
-    void removeMeterListener (MeterListener& listener);
-
+        if(isInput)
+            return incomingReadableLevels[(size_t) getChannelIndexInProcessBlockBuffer (true, bus, channel)];
+        else
+            return outgoingReadableLevels[(size_t) getChannelIndexInProcessBlockBuffer (false, bus, channel)];
+            
+    }
+    
+    std::function<void()> updateEditor;
+        
 private:
     //==============================================================================
     juce::AudioProcessorValueTreeState parameters;
@@ -84,7 +96,14 @@ private:
     juce::OwnedArray<juce::OwnedArray<IIR::Filter<float>>> filterArrays;
     LinkwitzRileyFilter<float> sumLowPassFilter, lfeLowPassFilter;
     
-    ListenerList<MeterListener> meterListeners;
+    SpinLock levelMutex;
+    std::vector<float> incomingLevels, outgoingLevels;
+    std::vector<float> incomingReadableLevels, outgoingReadableLevels;
+    
+    void handleAsyncUpdate() override
+    {
+        NullCheckedInvocation::invoke (updateEditor);
+    }
     
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BassicManagerAudioProcessor)

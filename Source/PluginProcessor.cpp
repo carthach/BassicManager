@@ -26,17 +26,20 @@ lfeLowPassFrequency(120.0f),
 lowPassBoost(10.0f),
 parameters (*this, nullptr, juce::Identifier ("APVTSTutorial"),
             {
-    std::make_unique<juce::AudioParameterFloat> ("crossoverFrequency",
+    std::make_unique<juce::AudioParameterFloat> (
+                                                 juce::ParameterID{"crossoverFrequency", 1},
                                                  "Crossover Frequency",
                                                  20.0f,
                                                  250.0f,
                                                  60.0f),
-    std::make_unique<juce::AudioParameterFloat> ("lfeLowPassFrequency",
+    std::make_unique<juce::AudioParameterFloat> (
+                                                 juce::ParameterID{"lfeLowPassFrequency", 1},
                                                  "LFE Low Pass Frequency",
                                                  20.0f,
                                                  250.0f,
                                                  120.0f),
-    std::make_unique<juce::AudioParameterBool> ("lfeBoost",
+    std::make_unique<juce::AudioParameterBool> (
+                                                juce::ParameterID{"lfeBoost", 1},
                                                 "LFE Boost",
                                                 false)
 })
@@ -48,10 +51,14 @@ parameters (*this, nullptr, juce::Identifier ("APVTSTutorial"),
         for(int j=0; j<8; j++)
             filterArrays[i]->add(new IIR::Filter<float>());
     }
+    
+    startTimerHz (60);
 }
 
 BassicManagerAudioProcessor::~BassicManagerAudioProcessor()
-{        
+{
+    stopTimer();
+    cancelPendingUpdate();
 }
 
 //==============================================================================
@@ -144,6 +151,10 @@ void BassicManagerAudioProcessor::prepareToPlay (double sampleRate, int samplesP
     
     updateCrossoverFrequency(sampleRate);
     lfeLowPassFilter.setCutoffFrequency(lfeLowPassFrequency.getNextValue());
+    
+    incomingLevels = outgoingLevels = incomingReadableLevels = outgoingReadableLevels = std::vector<float> (6, 0.0f);
+
+    triggerAsyncUpdate();
 }
 
 void BassicManagerAudioProcessor::releaseResources()
@@ -152,30 +163,18 @@ void BassicManagerAudioProcessor::releaseResources()
     // spare memory, etc.
 }
 
-#ifndef JucePlugin_PreferredChannelConfigurations
+//TODO: Make sure this only accepts 5.1
 bool BassicManagerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-#if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-#else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
-    if (layouts.getMainInputChannels() <= 6)
-        return false;
-    
-    // This checks if the input layout matches the output layout
-#if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
-#endif
-    
-    return true;
-#endif
+    const auto isSetValid = [] (const AudioChannelSet& set)
+    {
+        return ! set.isDisabled()
+               && ! (set.isDiscreteLayout() && set.getChannelIndexForType (AudioChannelSet::discreteChannel0) == -1);
+    };
+
+    return isSetValid (layouts.getMainOutputChannelSet())
+           && isSetValid (layouts.getMainInputChannelSet());
 }
-#endif
 
 void BassicManagerAudioProcessor::updateCrossoverFrequency(double sampleRate)
 {
@@ -208,11 +207,18 @@ void BassicManagerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    // Sum the full range channels to a new buffer and lowPass
-    for (auto channel = 0; channel < totalNumOutputChannels; ++channel)
+    SpinLock::ScopedTryLockType lock (levelMutex);
+
+    if (lock.isLocked())
     {
-        auto rmsLevel = buffer.getMagnitude(channel, 0, buffer.getNumSamples());
-        meterListeners.call ([=] (MeterListener& l) { l.handleNewMeterValue (0, channel, rmsLevel); });
+        for (size_t i = 0; i < totalNumInputChannels; ++i)
+        {
+            const auto minMax = buffer.findMinMax ((int) i, 0, buffer.getNumSamples());
+            const auto newMax = (float) std::max (std::abs (minMax.getStart()), std::abs (minMax.getEnd()));
+
+            auto& toUpdate = incomingLevels[i];
+            toUpdate = jmax (toUpdate, newMax);
+        }
     }
     
     sumBuffer.copyFrom(0, 0, buffer, CHANNELS::L, 0, buffer.getNumSamples());
@@ -269,11 +275,17 @@ void BassicManagerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     
     if(crossoverFrequency.isSmoothing())
         updateCrossoverFrequency(getSampleRate());
-        
-    for (auto channel = 0; channel < totalNumOutputChannels; ++channel)
+    
+    if (lock.isLocked())
     {
-        auto rmsLevel = buffer.getMagnitude(channel, 0, buffer.getNumSamples());
-        meterListeners.call ([=] (MeterListener& l) { l.handleNewMeterValue (1, channel, rmsLevel); });
+        for (size_t i = 0; i < totalNumOutputChannels; ++i)
+        {
+            const auto minMax = buffer.findMinMax ((int) i, 0, buffer.getNumSamples());
+            const auto newMax = (float) std::max (std::abs (minMax.getStart()), std::abs (minMax.getEnd()));
+
+            auto& toUpdate = outgoingLevels[i];
+            toUpdate = jmax (toUpdate, newMax);
+        }
     }
 }
 
@@ -310,9 +322,6 @@ void BassicManagerAudioProcessor::setStateInformation (const void* data, int siz
         if (xmlState->hasTagName (parameters.state.getType()))
             parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
-
-void BassicManagerAudioProcessor::addMeterListener    (MeterListener& listener) { meterListeners.add    (&listener); }
-void BassicManagerAudioProcessor::removeMeterListener (MeterListener& listener) { meterListeners.remove (&listener); }
 
 //==============================================================================
 // This creates new instances of the plugin..
