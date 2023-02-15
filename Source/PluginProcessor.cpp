@@ -163,17 +163,17 @@ void BassicManagerAudioProcessor::releaseResources()
     // spare memory, etc.
 }
 
-//TODO: Make sure this only accepts 5.1
 bool BassicManagerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    const auto isSetValid = [] (const AudioChannelSet& set)
-    {
-        return ! set.isDisabled()
-               && ! (set.isDiscreteLayout() && set.getChannelIndexForType (AudioChannelSet::discreteChannel0) == -1);
-    };
-
-    return isSetValid (layouts.getMainOutputChannelSet())
-           && isSetValid (layouts.getMainInputChannelSet());
+    if (layouts.getMainInputChannelSet()  == juce::AudioChannelSet::disabled()
+     || layouts.getMainOutputChannelSet() == juce::AudioChannelSet::disabled())
+        return false;
+ 
+    if (layouts.getMainInputChannelSet() != juce::AudioChannelSet::create5point1()
+     || layouts.getMainOutputChannelSet() != juce::AudioChannelSet::create5point1())
+        return false;
+    
+    return true;
 }
 
 void BassicManagerAudioProcessor::updateCrossoverFrequency(double sampleRate)
