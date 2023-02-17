@@ -52,6 +52,8 @@ parameters (*this, nullptr, juce::Identifier ("APVTSTutorial"),
             filterArrays[i]->add(new IIR::Filter<float>());
     }
     
+    incomingLevels = outgoingLevels = incomingReadableLevels = outgoingReadableLevels = std::vector<float> (6, 0.0f);
+    
     startTimerHz (60);
 }
 
