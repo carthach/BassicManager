@@ -1,55 +1,41 @@
-![PAMPLEJUCE](assets/images/pamplejuce.png)
-[![](https://github.com/sudara/pamplejuce/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/sudara/pamplejuce/actions)
+# BassicManager
 
-Pamplejuce is a ~~template~~ lifestyle for creating and building JUCE plugins in 2025.
+![BassicManager](ui.png)\
+[![](https://github.com/carthach/BassicManager/workflows/CMake/badge.svg)](https://github.com/carthach/BassicManager/actions)
 
-Out-of-the-box, it:
+BassicManager is an open source plugin for bass management of X.1 surround sound projects. Stick this on your 5.1 master bus to hear how your mix will sound on bass management systems. It is important to note that this is a MONITORING TOOL. Make sure to disable or bypass the plugin when you are rendering and mixing down.
 
-1. Runs C++23
-2. Uses JUCE 8.x as a git submodule (tracking develop).
-3. Uses CPM for dependency management.
-3. Relies on CMake 3.25 and higher for cross-platform building.
-4. Has [Catch2](https://github.com/catchorg/Catch2) v3.7.1 for the test framework and runner.
-5. Includes a `Tests` target and a `Benchmarks` target with examples to get started quickly.
-6. Has [Melatonin Inspector](https://github.com/sudara/melatonin_inspector) installed as a JUCE module to help relieve headaches when building plugin UI.
+## What is bass management?
 
-It also has integration with GitHub Actions, specifically:
+Home theatres generally don't have full range main system loudspeakers, so bass management is the process by which low frequency content in the L, R, C, LS, and RS channels is rerouted and combined with the low passed LFE signal to a subwoofer. In professional cinema theatres, each main speaker is (supposed to be) full-range and can reproduce its information fully so don't need to do this,.
 
-1. Building and testing cross-platform (linux, macOS, Windows) binaries
-2. Running tests and benchmarks in CI
-3. Running [pluginval](http://github.com/tracktion/pluginval) 1.x against the binaries for plugin validation
-4. Config for [installing Intel IPP](https://www.intel.com/content/www/us/en/developer/tools/oneapi/ipp.html)
-5. [Code signing and notarization on macOS](https://melatonin.dev/blog/how-to-code-sign-and-notarize-macos-audio-plugins-in-ci/)
-6. [Windows code signing via Azure Trusted Signing](https://melatonin.dev/blog/code-signing-on-windows-with-azure-trusted-signing/)
+In recording studio monitor systems, subwoofers are typically connected directly to an audio interface and hence might not have bass management. This tool is a monitoring aid to recreate and check what bass management will do to your project on home theatre systems. 
 
-It also contains:
+How this is done in software follows the block diagram below:
 
-1. A `.gitignore` for all platforms.
-2. A `.clang-format` file for keeping code tidy.
-3. A `VERSION` file that will propagate through JUCE and your app.
-4. A ton of useful comments and options around the CMake config.
+![BlockDiagram](https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/BassManagement5.1.png/550px-BassManagement5.1.png)
 
-## How does this all work at a high level?
+For more information check [Wikipedia](https://en.wikipedia.org/wiki/Bass_management)
 
-Check out the [official Pamplejuce documentation](https://melatonin.dev/manuals/pamplejuce/how-does-this-all-work/).
+## Installing
 
-[![Arc - 2024-10-01 51@2x](https://github.com/user-attachments/assets/01d19d2d-fbac-481f-8cec-e9325b2abe57)](https://melatonin.dev/manuals/pamplejuce/how-does-this-all-work/)
+Download the artifacts from [Github Actions](https://github.com/carthach/BassicManager/actions)
 
-## Setting up for YOUR project
+I refuse to shell out 100 euro to Apple for codesigning. You might need to clear the quarantine attributes after downloading on Mac:
 
-This is a template repo!
+```sh
+sudo xattr -r -d com.apple.quarantine /path/to/plugin.vst3/
+```
 
-That means you can click "[Use this template](https://github.com/sudara/pamplejuce/generate)" here or at the top of the page to get your own copy (not fork) of the repo. Then you can make it private or keep it public, up to you.
 
-Then check out the [documentation](https://melatonin.dev/manuals/pamplejuce/setting-your-project-up/) so you know what to tweak. 
+## Licence
 
-> [!NOTE]
-> Tests will immediately run and fail (go red) until you [set up code signing](https://melatonin.dev/manuals/pamplejuce/getting-started/code-signing/).
+The code is GPL, if you want to use it commercially contact me.
 
-## Having Issues?
+The downloadable plugins are donationware.
 
-Thanks to everyone who has contributed to the repository. 
+## Acknowledgements
 
-This repository covers a _lot_ of ground. JUCE itself has a lot of surface area. It's a group effort to maintain the garden and keep things nice!
+Software built with [JUCE](https://juce.com/)
 
-If something isn't just working out of the box — *it's probably not just you* — others are running into the problem, too, I promise. Check out [the official docs](https://melatonin.dev/manuals/pamplejuce), then please do [open an issue](https://github.com/sudara/pamplejuce/issues/new)!
+Excellent CI/CD template by [Pamplejuce](https://github.com/sudara/pamplejuce)
