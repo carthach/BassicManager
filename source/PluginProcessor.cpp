@@ -139,6 +139,7 @@ void BassicManagerAudioProcessor::prepareToPlay (double sampleRate, int samplesP
     lfeLowPassFilter.prepare(lowPassSpec);
     
     sumBuffer.setSize(1, samplesPerBlock);
+    sumBuffer.clear();
     
     crossoverFrequency.reset(sampleRate, 0.001);
     lfeLowPassFrequency.reset(sampleRate, 0.001);
